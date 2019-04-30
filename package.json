@@ -1,0 +1,25 @@
+{
+  "name": "fortune-elastic-adapter",
+  "version": "0.1.0",
+  "description": "ElasticSearch adapter for FortuneJS",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:sjovanovic/fortune-elastic-adapter.git"
+  },
+  "keywords": [
+    "elastic",
+    "elasticsearch",
+    "fortune",
+    "fortunejs",
+    "adapter"
+  ],
+  "author": "Slobodan Jovanovic",
+  "license": "MIT",
+  "dependencies": {
+    "elasticsearch": "^15.4.1"
+  }
+}
