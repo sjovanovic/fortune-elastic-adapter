@@ -222,16 +222,18 @@ module.exports = function (Adapter) {
         }
     }
 
-    // terms (match)
+    // (match)
     if(options.match){
         for(var i in options.match){
             if(Array.isArray(options.match[i])){
-                let mtc = { "terms" : {} }
-                mtc.terms[i] = options.match[i]
-                search.query.bool.must.push(mtc)
+                options.match[i].forEach((val)=>{
+                    var mtc = { "match_phrase" : {} }
+                    mtc.match_phrase[i] = val
+                    search.query.bool.must.push(mtc)
+                })
             }else{
-                let mtc = { "match" : {} }
-                mtc.match[i] = options.match[i]
+                var mtc = { "match_phrase" : {} }
+                mtc.match_phrase[i] = options.match[i]
                 search.query.bool.must.push(mtc)
             }
         }
