@@ -291,10 +291,17 @@ module.exports = function (Adapter) {
 
     // ids
     if(ids && ids.length){
-        if(Array.isArray(ids[0])) ids = ids[0] // bug in fortune - array inside array?
+        let nids = []
+        ids.forEach(i => {
+            if(Array.isArray(i)){
+                i.forEach(ii => nids.push(ii))
+            }else{
+                nids.push(i)
+            }
+        })
         search.query.bool.must.push({
             "ids" : {
-                "values" : ids
+                "values" : nids
             }
         })
     }
