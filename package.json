@@ -20,6 +20,6 @@
   "author": "Slobodan Jovanovic",
   "license": "MIT",
   "dependencies": {
-    "elasticsearch": "^16.5.0"
+    "elasticsearch": "^15.4.1"
   }
 }
