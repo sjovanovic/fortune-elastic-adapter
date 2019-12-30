@@ -46,10 +46,9 @@ module.exports = function (Adapter) {
   ElasticAdapter.prototype.connect = function () {
     var self = this
 
+    self.version = parseFloat(self.options.apiVersion)
+
     return DefaultAdapter.prototype.connect.call(self).then(function () {
-
-
-
 
         return new Promise(function (resolve, reject) {
 
@@ -64,11 +63,12 @@ module.exports = function (Adapter) {
                 }
                 self.ES = new elasticsearch.Client(opts);
 
-                // makes ure the database mappings are okay with these record types
-                return self.ES.indices.create({index:self.options.index})
-                    .then(()=>mappingConsistency(self.options.index, self.recordTypes, self.ES).then(()=>resolve(self.ES)))
-                    .catch(()=>mappingConsistency(self.options.index, self.recordTypes, self.ES).then(()=>resolve(self.ES)))
-                    
+                // makes sure the database mappings are okay with these record types
+                let createOpts = {index:self.options.index}
+                return self.ES.indices.create(createOpts)
+                    .then((foo, bar)=>makeTemplates(self, foo, bar))
+                    .then(()=>mappingConsistency(self.options.index, self.recordTypes, self.ES, self).then(()=>resolve(self.ES)))
+                    .catch(()=>mappingConsistency(self.options.index, self.recordTypes, self.ES, self).then(()=>resolve(self.ES)))
             }catch(err){
                 reject(err)
             }
@@ -92,13 +92,18 @@ module.exports = function (Adapter) {
 
         let bulk = []
         records.forEach((rec)=>{
-            bulk.push({
+            let payload = {
                 create: {
                     _index: self.options.index,
-                    _type: type,
                     _id: rec.id
                 }
-            })
+            }
+            if(self.version <= 6){
+                payload.create._type = type
+            }else{
+                rec.__type = type
+            }
+            bulk.push(payload)
             bulk.push(rec)
         })
 
@@ -158,6 +163,14 @@ module.exports = function (Adapter) {
                 "should":[]
             }
         }
+    }
+
+    if(self.version >= 6){
+        search.query.bool.filter.push({
+            "match":{
+                "__type":type
+            }
+        })
     }
 
     // size
@@ -294,11 +307,14 @@ module.exports = function (Adapter) {
 
     //console.log('FIND:', self.options.index+'/'+type, JSON.stringify(search, null, 2))
 
-    return self.ES.search({
+    let payload = {
         index: self.options.index,
-        type: type,
         body: search
-    }).then((resp)=>{
+    }
+    if(self.version < 6){
+        payload.type = type
+    }
+    return self.ES.search(payload).then((resp)=>{
         resp.hits.hits.count = resp.hits.total
 
 
@@ -368,12 +384,17 @@ module.exports = function (Adapter) {
             }
         }
 
-        mget.push({
+        let mgetItem = {
             _id: update.id, 
-            _type: type,
             _index: self.options.index,
             _source: fields.length ? fields : false
-        })
+        }
+
+        if(self.version < 6){
+            mgetItem._type = type
+        }
+
+        mget.push(mgetItem)
     })
 
 
@@ -385,13 +406,16 @@ module.exports = function (Adapter) {
 
         let bulk = []
         updates.forEach((update)=>{
-            bulk.push({
+            let payload = {
                 update: {
                     _index: self.options.index,
-                    _type: type,
                     _id: update.id
                 }
-            })
+            }
+            if(self.version < 6){
+                payload.update._type = type
+            }
+            bulk.push(payload)
 
             let toUpdate = { ...update.replace }
             if(update.push){
@@ -448,13 +472,16 @@ module.exports = function (Adapter) {
     // Delete records by IDs, or delete the entire collection if IDs are undefined or empty. Success should resolve to the number of records deleted.
     let bulk = []
     ids.forEach((id)=>{
-        bulk.push({
+        let payload = {
             delete: {
                 _index: self.options.index,
-                _type: type,
                 _id: id
             }
-        })
+        }
+        if(self.version < 6){
+            payload.delete._type = type
+        }
+        bulk.push(payload)
     })
 
     return self.ES.bulk({
@@ -472,7 +499,7 @@ module.exports = function (Adapter) {
 
   return ElasticAdapter
 
-  function mappingConsistency(index, recordTypes, client) {
+  function mappingConsistency(index, recordTypes, client, self) {
         // make updates
         let promises = []
         let promiseData = []
@@ -481,7 +508,7 @@ module.exports = function (Adapter) {
             "properties": {
                 "data": {
                     "type": "long",
-                    "index": "no"
+                    "index": self.version >= 6 ? false : "no"
                 }
             }
         }
@@ -505,17 +532,47 @@ module.exports = function (Adapter) {
 
         // apply updates
         let pnum = promiseData.length
-        if(!pnum) return cb()
+        if(!pnum) return Promise.resolve([])
         for(var i=0; i<pnum; i++){
             promises.push(new Promise((resolve, reject)=>{
                 let body = promiseData.pop()
                 let type = body.type; delete body.type;
-                client.indices.putMapping({index:index, type:type, body:body}, (err, resp)=>{
+                let putOpts = {index:index, type:type, body:body}
+                if(self.version >= 6){
+                    putOpts.body = putOpts.body[type]
+                    delete putOpts.type
+                }
+                //console.log(JSON.stringify(putOpts.body, null, 2))
+                client.indices.putMapping(putOpts, (err, resp)=>{
                     if(err) return reject(err)
                     resolve(resp)
                 })
             }))
         }
         return Promise.all(promises)
+    }
+
+    function makeTemplates(self, foo, bar) {
+       if(self.version < 6) return Promise.resolve(true)
+       let tname = self.options.index + "_type_keyword"
+
+       return self.ES.indices.deleteTemplate({name:tname}).then((resp)=>{
+            let tpl = {
+                "index_patterns":[ self.options.index ],
+                "mappings": {
+                    "properties": {
+                        "__type": {
+                            "type": "keyword"
+                        }
+                    }
+                }
+            }
+            return self.ES.indices.putTemplate({
+                name: tname,
+                create:true,
+                body: tpl
+            })
+       })
+       
     }
 }
