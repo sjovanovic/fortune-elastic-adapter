@@ -291,6 +291,7 @@ module.exports = function (Adapter) {
 
     // ids
     if(ids && ids.length){
+        if(Array.isArray(ids[0])) ids = ids[0] // bug in fortune - array inside array?
         search.query.bool.must.push({
             "ids" : {
                 "values" : ids
