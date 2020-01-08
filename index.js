@@ -425,21 +425,17 @@ module.exports = function (Adapter) {
             }
             bulk.push(payload)
 
-            let toUpdate = { ...update.replace }
-            if(update.push){
-                let doc = docs[update.id]._source
-                for(var i in update.push){
-                    if(Array.isArray(doc[i])){
-                        toUpdate[i] = doc[i]
-                        toUpdate[i].push(update.push[i])
-                    }else{
-                        toUpdate[i] = [doc[i], update.push[i]]
-                    }
-                }
-            }
+            let toUpdate = {}
+
+            try{
+
+            
             if(update.pull){
                 let doc = docs[update.id]._source
                 for(var i in update.pull){
+                    let isArray = Array.isArray(update.pull[i])
+                    if(!doc[i]) continue
+                    if(!Array.isArray(doc[i])) doc[i] = [doc[i]]
                     toUpdate[i] = doc[i]
                     if(Array.isArray(update.pull[i])){
                         update.pull[i].forEach( (val)=>toUpdate[i].splice(toUpdate[i].indexOf(val)) )
@@ -447,6 +443,32 @@ module.exports = function (Adapter) {
                         toUpdate[i].splice(toUpdate[i].indexOf(update.pull[i]))
                     }
                 }
+            }
+
+            if(update.push){
+                let doc = docs[update.id]._source
+                for(var i in update.push){
+                    let isArray = Array.isArray(update.push[i])
+                    if(doc[i]) {
+                        doc[i] = Array.isArray(doc[i]) ? doc[i] : [doc[i]]
+                    }else{
+                        doc[i] = []
+                    }
+                    if(isArray){
+                        doc[i] = doc[i].concat(update.push[i])
+                    }else{
+                        doc[i].push(update.push[i])
+                    }
+                    toUpdate[i] = doc[i]
+                }
+            }
+
+            }catch(err) {
+                console.log('ERORISKA', err)
+            }
+
+            if(update.replace){
+                toUpdate = { ...toUpdate, ...update.replace }
             }
 
             if(update.operate && typeof update.operate == 'object'){
