@@ -153,6 +153,52 @@ module.exports = function (Adapter) {
     var self = this
 
     options = options || {}
+    if(ids && ids.length && !options.exists && !options.match && !options.range && !options.query){
+        let mget = []
+        let source = true
+        if(options.fields){
+            source = {
+                "include": [],
+                "exclude": []
+            }
+            for(var i in options.fields){
+                if(options.fields[i] === true){
+                    source.include.push(i)
+                }else{
+                    source.exclude.push(i)
+                }
+            }
+            // always include id
+            if(source.include.length && source.include.indexOf('id') == -1){
+                source.include.push('id')
+            }else if(!source.include.length){
+                delete source.include
+            }
+        }
+        ids.forEach((id)=>{
+            let mgetItem = {
+                _id: id, 
+                _index: self.options.index,
+                _source: source
+            }
+            if(self.version < 6){
+                mgetItem._type = type
+            }
+            mget.push(mgetItem)
+        })
+        return self.ES.mget({ body: { docs: mget }}).then((resp) => {
+            let results = []
+            for(var i in resp.docs){
+                resp.docs[i]._source.id = resp.docs[i]._id
+                results.push(resp.docs[i]._source)
+            }
+            results.count = results.length
+            return Promise.resolve(results)
+        }).catch((err)=>{
+            console.log('ELASTIC ERROR', err)
+            return Promise.reject(err)
+        })
+    }
 
     let search = {
         "query": {
