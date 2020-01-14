@@ -188,11 +188,20 @@ module.exports = function (Adapter) {
         })
         return self.ES.mget({ body: { docs: mget }}).then((resp) => {
             let results = []
+            results.count = resp.docs.length
             for(var i in resp.docs){
                 resp.docs[i]._source.id = resp.docs[i]._id
-                results.push(resp.docs[i]._source)
+                let entry = resp.docs[i]._source
+
+                // handle buffers
+                for(var i in entry){
+                    if(entry[i] && entry[i].type == 'Buffer' ){
+                        entry[i] = Buffer.from(entry[i].data)
+                    }
+                }
+
+                results.push(entry)
             }
-            results.count = results.length
             return Promise.resolve(results)
         }).catch((err)=>{
             console.log('ELASTIC ERROR', err)
