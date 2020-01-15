@@ -36,6 +36,8 @@ const store = fortune(recordTypes, {
 })
 ```
 
+For full list of options read [the official elasticsearch client configuration options](https://www.elastic.co/guide/en/elasticsearch/client/javascript-api/current/client-configuration.html)
+
 
 ## License
 

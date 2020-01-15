@@ -53,11 +53,10 @@ module.exports = function (Adapter) {
         return new Promise(function (resolve, reject) {
 
             try{
-
-                let supported = ['hosts', 'log', 'apiVersion']
+                let skip = ['index']
                 let opts = {}
                 for(var i in self.options){
-                    if(supported.indexOf(i) != -1){
+                    if(!skip.includes(i)){
                         opts[i] = self.options[i]
                     }
                 }
@@ -153,61 +152,6 @@ module.exports = function (Adapter) {
     var self = this
 
     options = options || {}
-    if(ids && ids.length && !options.exists && !options.match && !options.range && !options.query){
-        let mget = []
-        let source = true
-        if(options.fields){
-            source = {
-                "include": [],
-                "exclude": []
-            }
-            for(var i in options.fields){
-                if(options.fields[i] === true){
-                    source.include.push(i)
-                }else{
-                    source.exclude.push(i)
-                }
-            }
-            // always include id
-            if(source.include.length && source.include.indexOf('id') == -1){
-                source.include.push('id')
-            }else if(!source.include.length){
-                delete source.include
-            }
-        }
-        ids.forEach((id)=>{
-            let mgetItem = {
-                _id: id, 
-                _index: self.options.index,
-                _source: source
-            }
-            if(self.version < 6){
-                mgetItem._type = type
-            }
-            mget.push(mgetItem)
-        })
-        return self.ES.mget({ body: { docs: mget }}).then((resp) => {
-            let results = []
-            results.count = resp.docs.length
-            for(var i in resp.docs){
-                resp.docs[i]._source.id = resp.docs[i]._id
-                let entry = resp.docs[i]._source
-
-                // handle buffers
-                for(var i in entry){
-                    if(entry[i] && entry[i].type == 'Buffer' ){
-                        entry[i] = Buffer.from(entry[i].data)
-                    }
-                }
-
-                results.push(entry)
-            }
-            return Promise.resolve(results)
-        }).catch((err)=>{
-            console.log('ELASTIC ERROR', err)
-            return Promise.reject(err)
-        })
-    }
 
     let search = {
         "query": {
@@ -346,17 +290,9 @@ module.exports = function (Adapter) {
 
     // ids
     if(ids && ids.length){
-        let nids = []
-        ids.forEach(i => {
-            if(Array.isArray(i)){
-                i.forEach(ii => nids.push(ii))
-            }else{
-                nids.push(i)
-            }
-        })
         search.query.bool.must.push({
             "ids" : {
-                "values" : nids
+                "values" : ids
             }
         })
     }
@@ -480,17 +416,21 @@ module.exports = function (Adapter) {
             }
             bulk.push(payload)
 
-            let toUpdate = {}
-
-            try{
-
-            
+            let toUpdate = { ...update.replace }
+            if(update.push){
+                let doc = docs[update.id]._source
+                for(var i in update.push){
+                    if(Array.isArray(doc[i])){
+                        toUpdate[i] = doc[i]
+                        toUpdate[i].push(update.push[i])
+                    }else{
+                        toUpdate[i] = [doc[i], update.push[i]]
+                    }
+                }
+            }
             if(update.pull){
                 let doc = docs[update.id]._source
                 for(var i in update.pull){
-                    let isArray = Array.isArray(update.pull[i])
-                    if(!doc[i]) continue
-                    if(!Array.isArray(doc[i])) doc[i] = [doc[i]]
                     toUpdate[i] = doc[i]
                     if(Array.isArray(update.pull[i])){
                         update.pull[i].forEach( (val)=>toUpdate[i].splice(toUpdate[i].indexOf(val)) )
@@ -498,32 +438,6 @@ module.exports = function (Adapter) {
                         toUpdate[i].splice(toUpdate[i].indexOf(update.pull[i]))
                     }
                 }
-            }
-
-            if(update.push){
-                let doc = docs[update.id]._source
-                for(var i in update.push){
-                    let isArray = Array.isArray(update.push[i])
-                    if(doc[i]) {
-                        doc[i] = Array.isArray(doc[i]) ? doc[i] : [doc[i]]
-                    }else{
-                        doc[i] = []
-                    }
-                    if(isArray){
-                        doc[i] = doc[i].concat(update.push[i])
-                    }else{
-                        doc[i].push(update.push[i])
-                    }
-                    toUpdate[i] = doc[i]
-                }
-            }
-
-            }catch(err) {
-                console.log('ERORISKA', err)
-            }
-
-            if(update.replace){
-                toUpdate = { ...toUpdate, ...update.replace }
             }
 
             if(update.operate && typeof update.operate == 'object'){

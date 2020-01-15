@@ -1,6 +1,6 @@
 {
   "name": "fortune-elastic-adapter",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "ElasticSearch adapter for FortuneJS",
   "main": "index.js",
   "scripts": {
