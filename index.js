@@ -291,18 +291,34 @@ module.exports = function (Adapter) {
     }
 
     // (match)
+    let notPrefix = 'NOT '
     if(options.match){
         for(var i in options.match){
             if(Array.isArray(options.match[i])){
                 options.match[i].forEach((val)=>{
+                    if(val.startsWith(notPrefix)){
+                        val = val.substr(notPrefix.length)
+                        let mtc = { "match_phrase" : {} }
+                        mtc.match_phrase[i] = val
+                        search.query.bool.must_not.push(mtc)
+                    }else{
+                        var mtc = { "match_phrase" : {} }
+                        mtc.match_phrase[i] = val
+                        search.query.bool.must.push(mtc)
+                    }
+                })
+            }else{
+                let val = options.match[i]
+                if(val.startsWith(notPrefix)){
+                    val = val.substr(notPrefix.length)
+                    let mtc = { "match_phrase" : {} }
+                    mtc.match_phrase[i] = val
+                    search.query.bool.must_not.push(mtc)
+                }else{
                     var mtc = { "match_phrase" : {} }
                     mtc.match_phrase[i] = val
                     search.query.bool.must.push(mtc)
-                })
-            }else{
-                var mtc = { "match_phrase" : {} }
-                mtc.match_phrase[i] = options.match[i]
-                search.query.bool.must.push(mtc)
+                }
             }
         }
     }
