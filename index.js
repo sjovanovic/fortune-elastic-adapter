@@ -291,7 +291,7 @@ module.exports = function (Adapter) {
     }
 
     // (match)
-    let notPrefix = 'NOT '
+    let notPrefix = 'NOT-'
     if(options.match){
         for(var i in options.match){
             if(Array.isArray(options.match[i])){
@@ -362,19 +362,31 @@ module.exports = function (Adapter) {
 
     // ids
     if(ids && ids.length){
-        let nids = []
+        let mustIds = []
+        let mustNotIds = []
         ids.forEach(i => {
-            if(Array.isArray(i)){
-                i.forEach(ii => nids.push(ii))
+            if(i.startsWith(notPrefix)){
+                mustNotIds.push(i.substr(notPrefix.length))
             }else{
-                nids.push(i)
+                mustIds.push(i)
             }
         })
-        search.query.bool.must.push({
-            "ids" : {
-                "values" : nids
-            }
-        })
+
+        if(mustIds.length){
+            search.query.bool.must.push({
+                "ids" : {
+                    "values" : mustIds
+                }
+            })
+        }
+
+        if(mustNotIds.length){
+            search.query.bool.must_not.push({
+                "ids" : {
+                    "values" : mustNotIds
+                }
+            })
+        }
     }
 
     // match all?
