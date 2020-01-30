@@ -291,35 +291,42 @@ module.exports = function (Adapter) {
     }
 
     // (match)
-    let notPrefix = 'NOT-'
+    // let notPrefix = 'NOT-'
+    // if(options.match){
+    //     for(var i in options.match){
+    //         if(Array.isArray(options.match[i])){
+    //             options.match[i].forEach((val)=>{
+    //                 if(val.startsWith(notPrefix)){
+    //                     val = val.substr(notPrefix.length)
+    //                     let mtc = { "match_phrase" : {} }
+    //                     mtc.match_phrase[i] =  {query:val, operator:"AND"}
+    //                     search.query.bool.must_not.push(mtc)
+    //                 }else{
+    //                     var mtc = { "match_phrase" : {} }
+    //                     mtc.match_phrase[i] = {query:val, operator:"AND"}
+    //                     search.query.bool.must.push(mtc)
+    //                 }
+    //             })
+    //         }else{
+    //             let val = options.match[i]
+    //             if(val.startsWith(notPrefix)){
+    //                 val = val.substr(notPrefix.length)
+    //                 let mtc = { "match_phrase" : {} }
+    //                 mtc.match_phrase[i] = {query:val, operator:"AND"}
+    //                 search.query.bool.must_not.push(mtc)
+    //             }else{
+    //                 var mtc = { "match_phrase" : {} }
+    //                 mtc.match_phrase[i] = {query:val, operator:"AND"}
+    //                 search.query.bool.must.push(mtc)
+    //             }
+    //         }
+    //     }
+    // }
+
+    
     if(options.match){
         for(var i in options.match){
-            if(Array.isArray(options.match[i])){
-                options.match[i].forEach((val)=>{
-                    if(val.startsWith(notPrefix)){
-                        val = val.substr(notPrefix.length)
-                        let mtc = { "match_phrase" : {} }
-                        mtc.match_phrase[i] = val
-                        search.query.bool.must_not.push(mtc)
-                    }else{
-                        var mtc = { "match_phrase" : {} }
-                        mtc.match_phrase[i] = val
-                        search.query.bool.must.push(mtc)
-                    }
-                })
-            }else{
-                let val = options.match[i]
-                if(val.startsWith(notPrefix)){
-                    val = val.substr(notPrefix.length)
-                    let mtc = { "match_phrase" : {} }
-                    mtc.match_phrase[i] = val
-                    search.query.bool.must_not.push(mtc)
-                }else{
-                    var mtc = { "match_phrase" : {} }
-                    mtc.match_phrase[i] = val
-                    search.query.bool.must.push(mtc)
-                }
-            }
+            parseMatch(i, options.match[i], search)
         }
     }
 
@@ -688,4 +695,79 @@ module.exports = function (Adapter) {
        })
        
     }
+
+    function parseMatch(name, value, search){
+        // match_phrase_prefix, match_phrase
+        let notPrefix = 'NOT-'
+        let queryPrefix = 'QUERY-'
+        let prefixPrefix = 'PREFIX-'
+        value = Array.isArray(value) ? value : [value]
+
+        for(let i=0; i<value.length; i++){
+            let val = value[i]
+            
+            if(val instanceof Date) {
+                val = val.toISOString()
+            }else{
+                try{
+                    if(!val || !val.trim()) continue
+                    val = val.trim()
+                }catch(err){
+                    throw Error(err.message + '  UNKNOWN SEARCH VALUE TYPE')
+                }
+            }
+            
+            
+
+            // val = val.substr(notPrefix.length)
+            // let mtc = { "match_phrase" : {} }
+            // mtc.match_phrase[i] =  {query:val, operator:"AND"}
+
+            if(val.startsWith(notPrefix)){
+                if(val.startsWith(notPrefix + prefixPrefix)){
+                    val = val.substr(notPrefix.length + prefixPrefix.length)
+                    let mtc = { "match_phrase_prefix" : {} }
+                    mtc.match_phrase_prefix[name] = {
+                        query:val
+                    }
+                    search.query.bool.must_not.push(mtc)
+                }else if(val.startsWith(notPrefix + queryPrefix)){
+                    val = val.substr(notPrefix.length + queryPrefix.length)
+                    let mtc = { 
+                        "query_string" : {
+                            "query": val,
+                            "default_field" : name
+                        } 
+                    }
+                    search.query.bool.must_not.push(mtc)
+                }else{
+                    val = val.substr(notPrefix.length)
+                    let mtc = { "match_phrase" : {} }
+                    mtc.match_phrase[name] =  {query:val, operator:"AND"}
+                    search.query.bool.must_not.push(mtc)
+                }
+            }else if(val.startsWith(queryPrefix)){
+                val = val.substr(queryPrefix.length)
+                let mtc = { 
+                    "query_string" : {
+                        "query": val,
+                        "default_field" : name
+                    } 
+                }
+                search.query.bool.must.push(mtc)
+            }else if(val.startsWith(prefixPrefix)){
+                val = val.substr(prefixPrefix.length)
+                let mtc = { "match_phrase_prefix" : {} }
+                mtc.match_phrase_prefix[name] = {
+                    query:val
+                }
+                search.query.bool.must.push(mtc)
+            }else{
+                let mtc = { "match_phrase" : {} }
+                mtc.match_phrase[name] =  {query:val, operator:"AND"}
+                search.query.bool.must.push(mtc)
+            }
+        }  
+    }
+
 }
