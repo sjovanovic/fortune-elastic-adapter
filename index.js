@@ -192,6 +192,12 @@ module.exports = function (Adapter) {
         })
         return self.ES.mget({ body: { docs: mget }}).then((resp) => {
             let results = []
+
+            if(!resp.docs || !resp.docs.length) {
+                results.count = 0
+                return results
+            }
+            
             results.count = resp.docs.length
             for(var i in resp.docs){
                 resp.docs[i]._source.id = resp.docs[i]._id
@@ -672,6 +678,13 @@ module.exports = function (Adapter) {
 
         for(let i=0; i<value.length; i++){
             let val = value[i]
+
+            if(typeof val == 'boolean' || typeof val == 'number'){
+                let mtc = { "match_phrase" : {} }
+                mtc.match_phrase[name] =  {query:val, operator:"AND"}
+                search.query.bool.must.push(mtc)
+                return
+            }
             
             if(val instanceof Date) {
                 val = val.toISOString()
