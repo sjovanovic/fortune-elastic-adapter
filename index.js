@@ -504,10 +504,10 @@ module.exports = function (Adapter) {
                     if(!doc[i]) continue
                     if(!Array.isArray(doc[i])) doc[i] = [doc[i]]
                     toUpdate[i] = doc[i]
-                    if(Array.isArray(update.pull[i])){
-                        update.pull[i].forEach( (val)=>toUpdate[i].splice(toUpdate[i].indexOf(val)) )
+                    if(isArray){
+                        update.pull[i].forEach( (val)=>toUpdate[i].splice(toUpdate[i].indexOf(val), 1) )
                     }else{
-                        toUpdate[i].splice(toUpdate[i].indexOf(update.pull[i]))
+                        toUpdate[i].splice(toUpdate[i].indexOf(update.pull[i]), 1)
                     }
                 }
             }
