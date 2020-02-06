@@ -200,6 +200,7 @@ module.exports = function (Adapter) {
             
             results.count = resp.docs.length
             for(var i in resp.docs){
+                if(resp.docs[i].found === false) continue
                 resp.docs[i]._source.id = resp.docs[i]._id
                 let entry = resp.docs[i]._source
 
