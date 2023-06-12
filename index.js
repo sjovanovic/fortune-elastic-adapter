@@ -683,7 +683,13 @@ module.exports = function (Adapter) {
             if(typeof val == 'boolean' || typeof val == 'number'){
                 let mtc = { "match_phrase" : {} }
                 mtc.match_phrase[name] =  {query:val, operator:"AND"}
-                search.query.bool.must.push(mtc)
+
+                if(value.length == 1){
+                    search.query.bool.must.push(mtc)
+                }else{
+                    search.query.bool.should.push(mtc)
+                }
+                
                 return
             }
             
@@ -729,20 +735,31 @@ module.exports = function (Adapter) {
                         "default_field" : name
                     } 
                 }
-                search.query.bool.must.push(mtc)
+                if(value.length == 1){
+                    search.query.bool.must.push(mtc)
+                }else{
+                    search.query.bool.should.push(mtc)
+                }
             }else if(val.startsWith(prefixPrefix)){
                 val = val.substr(prefixPrefix.length)
                 let mtc = { "match_phrase_prefix" : {} }
                 mtc.match_phrase_prefix[name] = {
                     query:val
                 }
-                search.query.bool.must.push(mtc)
+                if(value.length == 1){
+                    search.query.bool.must.push(mtc)
+                }else{
+                    search.query.bool.should.push(mtc)
+                }
             }else{
                 let mtc = { "match_phrase" : {} }
                 mtc.match_phrase[name] =  {query:val, operator:"AND"}
-                search.query.bool.must.push(mtc)
+                if(value.length == 1){
+                    search.query.bool.must.push(mtc)
+                }else{
+                    search.query.bool.should.push(mtc)
+                }
             }
         }  
     }
-
 }
